@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobile Agent Dashboard</title>
+<meta name="description" content="Mobile Agent Dashboard — a gamified operator dashboard template. 21 skills on the real RuneScape XP curve, a quest book, a 28-slot inventory, and a truthful agent-ops station floor. Demo data only, stored in your browser.">
+<style>
+/* ============ Theme tokens — edit these to re-theme the station ============ */
+:root{
+  --bg:#0b0f0d;
+  --bg-grid:#10160f;
+  --panel:#131a15;
+  --panel-2:#182119;
+  --line:#26362a;
+  --text:#f4f7f4;
+  --muted:#9db3a4;
+  --green:#34d17b;
+  --green-deep:#1c7a48;
+  --red:#e5484d;
+  --red-deep:#93262b;
+  --red-text:#ff6b70;
+  --white:#ffffff;
+  --radius:10px;
+}
+/* ============ Base (mobile first) ============ */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  background-image:
+    linear-gradient(var(--bg-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+  background-size:28px 28px;
+  color:var(--text);
+  font-family:"Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  font-size:16px;
+  line-height:1.45;
+  overflow-x:clip;
+}
+.mono{font-family:ui-monospace, "Cascadia Mono", Consolas, monospace; font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+.hidden{display:none !important}
+h2,h3,h4{margin:.2em 0 .4em; line-height:1.2}
+button{font:inherit; color:inherit}
+.wrap{width:100%; max-width:1200px; margin:0 auto; padding:12px}
+/* ============ Header ============ */
+.topbar{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:10px 2px 14px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:center; gap:12px; min-width:0}
+.brand-logo{width:48px; height:48px; flex:0 0 auto}
+.brand-name{font-size:1.35rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase}
+.brand-sub{color:var(--muted); font-size:.8rem; letter-spacing:.06em; text-transform:uppercase}
+.total-chip{
+  display:flex; align-items:center; gap:10px;
+  border:1px solid var(--line); background:var(--panel);
+  border-radius:999px; padding:8px 16px; min-height:44px;
+}
+.total-chip-label{color:var(--muted); font-size:.75rem; letter-spacing:.08em; text-transform:uppercase}
+.total-chip-num{font-size:1.3rem; font-weight:700; color:var(--green)}
+/* ============ Tabs ============ */
+.tabs{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px}
+.tab{
+  min-height:44px; padding:10px 16px; cursor:pointer;
+  background:var(--panel); color:var(--text);
+  border:1px solid var(--line); border-radius:999px;
+  font-size:.95rem; letter-spacing:.02em;
+}
+.tab:hover{border-color:var(--green)}
+.tab.active{background:var(--red-deep); border-color:var(--red-deep); color:var(--white); font-weight:600}
+/* ============ Cards & layout ============ */
+.card{
+  background:var(--panel); border:1px solid var(--line);
+  border-radius:var(--radius); padding:16px; margin-bottom:14px;
+}
+.card-head{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+.profile-grid{display:grid; grid-template-columns:1fr; gap:0}
+.identity-card{text-align:center}
+.identity-logo{width:96px; height:96px; margin:4px auto 8px; display:block}
+.medallion{
+  width:118px; height:118px; margin:12px auto; border-radius:50%;
+  background:conic-gradient(var(--green) 0 50%, var(--red) 50% 100%);
+  display:flex; align-items:center; justify-content:center;
+}
+.medallion-inner{
+  width:100px; height:100px; border-radius:50%; background:var(--panel);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+.medallion-inner span{font-size:2rem; font-weight:700; line-height:1}
+.medallion-inner small{color:var(--muted); font-size:.65rem; letter-spacing:.1em; text-transform:uppercase}
+/* ============ Bars & pills ============ */
+.bar{background:#0a0d0a; border:1px solid var(--line); border-radius:999px; height:16px; overflow:hidden}
+.bar.mini{height:8px}
+.bar-fill{background:var(--green); height:100%; width:0; transition:width .3s ease}
+.bar-fill.red{background:var(--red)}
+.bar.hp{height:20px}
+.pill{
+  display:inline-block; padding:3px 10px; border-radius:999px;
+  border:1px solid var(--line); font-size:.75rem; letter-spacing:.05em; text-transform:uppercase;
+}
+.pill-green{border-color:var(--green-deep); color:var(--green)}
+.pill-red{border-color:var(--red-deep); color:var(--red-text)}
+.pill-white{border-color:var(--muted); color:var(--text)}
+/* ============ Buttons & forms ============ */
+.btn{
+  min-height:44px; padding:10px 18px; border-radius:8px; cursor:pointer;
+  border:1px solid var(--line); background:var(--panel-2); color:var(--text); font-size:.95rem;
+}
+.btn:hover{border-color:var(--green)}
+.btn-primary{background:var(--green); border-color:var(--green); color:#06130b; font-weight:700}
+.btn-primary:hover{background:var(--green-deep); border-color:var(--green-deep); color:var(--white)}
+.btn-ghost{background:transparent}
+.btn.danger{border-color:var(--red-deep); color:var(--red-text)}
+.form{display:grid; gap:10px; margin-top:12px}
+.form label{display:grid; gap:4px; font-size:.9rem; color:var(--muted)}
+.form input,.form select,.form textarea{
+  min-height:44px; padding:10px 12px; font-size:16px; color:var(--text);
+  background:#0a0d0a; border:1px solid var(--line); border-radius:8px; width:100%;
+}
+.form input:focus,.form select:focus,.form textarea:focus{outline:2px solid var(--green); outline-offset:1px}
+.form .row{display:grid; gap:10px}
+/* ============ Skills ============ */
+.school-title{
+  margin:18px 0 8px; font-size:1rem; letter-spacing:.08em; text-transform:uppercase; color:var(--green);
+}
+.school-title:first-child{margin-top:0}
+.skills-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
+.tile{
+  text-align:left; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:12px; cursor:pointer; min-height:44px; display:flex; flex-direction:column; gap:8px; width:100%;
+}
+.tile:hover{border-color:var(--green)}
+.tile-top{display:flex; align-items:flex-start; justify-content:space-between}
+.mono-badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:40px; height:40px; border:1px solid var(--green-deep); border-radius:8px;
+  color:var(--green); font-weight:700; font-size:.85rem; letter-spacing:.05em; background:#0a0d0a;
+}
+.tile-lvl{font-size:1.6rem; font-weight:700; line-height:1}
+.tile-name{font-size:.95rem; font-weight:600}
+.tile-xp{color:var(--muted); font-size:.8rem}
+/* ============ Quests ============ */
+.steps{list-style:none; margin:10px 0; padding:0; display:grid; gap:6px}
+.steps label{display:flex; align-items:center; gap:10px; min-height:44px; cursor:pointer; padding:4px 6px; border-radius:6px}
+.steps label:hover{background:var(--panel-2)}
+.steps input[type="checkbox"]{width:22px; height:22px; accent-color:var(--green); flex:0 0 auto}
+.steps .done{text-decoration:line-through; color:var(--muted)}
+.quest select{
+  min-height:44px; padding:8px 10px; font-size:16px; color:var(--text);
+  background:#0a0d0a; border:1px solid var(--line); border-radius:8px;
+}
+/* ============ Inventory ============ */
+.inv-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+.slot{
+  min-height:76px; border:1px solid var(--line); border-radius:8px; background:#0a0d0a;
+  display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start; gap:4px;
+  padding:8px; cursor:pointer; text-align:left; width:100%; overflow:hidden;
+}
+.slot.filled{background:var(--panel-2); border-color:var(--green-deep)}
+.slot.filled:hover{border-color:var(--green)}
+.slot.empty{cursor:default; opacity:.45}
+.slot-type{font-size:.6rem; letter-spacing:.1em; color:var(--green); text-transform:uppercase}
+.slot-label{font-size:.78rem; line-height:1.25; word-break:break-word}
+/* ============ Station floor ============ */
+.law-banner{
+  border:1px solid var(--red-deep); border-left:6px solid var(--red);
+  background:var(--panel); border-radius:var(--radius); padding:14px 16px; margin-bottom:14px;
+  font-weight:600;
+}
+.zone-grid{display:grid; grid-template-columns:1fr; gap:10px}
+.zone{
+  text-align:left; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:14px; cursor:pointer; min-height:44px; width:100%; display:flex; flex-direction:column; gap:6px;
+}
+.zone:hover{border-color:var(--green)}
+.zone h4{margin:0; font-size:1rem}
+.zone p{margin:0; color:var(--muted); font-size:.88rem}
+/* ============ Task log ============ */
+.log-row{
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;
+  border:1px solid var(--line); border-radius:8px; background:var(--panel);
+  padding:10px 12px; margin-bottom:8px;
+}
+.log-date{color:var(--muted); font-size:.82rem}
+.log-task{font-weight:600; flex:1 1 100%}
+.log-xp{color:var(--green); font-weight:700}
+.log-note{color:var(--muted); font-size:.85rem; flex:1 1 100%}
+.log-del{min-height:44px; padding:8px 12px}
+/* ============ Weekly ============ */
+.week-bars{display:flex; align-items:flex-end; gap:8px; height:150px; padding-top:10px}
+.week-day{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; height:100%; justify-content:flex-end}
+.week-bar{width:100%; max-width:44px; background:var(--green); border-radius:4px 4px 0 0; min-height:2px}
+.week-day.today .week-bar{background:var(--red)}
+.week-day span{font-size:.75rem; color:var(--muted)}
+.week-day b{font-size:.8rem}
+.rank-row{display:flex; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line)}
+.rank-row:last-child{border-bottom:none}
+/* ============ Detail rows (modal) ============ */
+.kv{display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line)}
+.kv:last-child{border-bottom:none}
+.kv b{text-align:right}
+.kv span{color:var(--muted)}
+/* ============ Modal & toast ============ */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:50;
+  display:flex; align-items:flex-end; justify-content:center;
+}
+.modal{
+  background:var(--panel); border:1px solid var(--line); width:100%; max-height:92vh; overflow:auto;
+  border-radius:14px 14px 0 0; padding:18px;
+}
+.modal-head{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.modal-head h3{margin:0}
+.toast{
+  position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:60;
+  background:var(--green); color:#06130b; font-weight:700;
+  padding:12px 20px; border-radius:999px; box-shadow:0 4px 18px rgba(0,0,0,.5);
+  max-width:92vw; text-align:center;
+}
+.foot{padding:18px 2px 8px; text-align:center}
+/* ============ Tablet (>=768px) ============ */
+@media (min-width:768px){
+  .wrap{padding:20px}
+  .profile-grid{grid-template-columns:1fr 1fr; gap:14px}
+  .identity-card{grid-row:span 2}
+  .skills-grid{grid-template-columns:repeat(3,1fr)}
+  .inv-grid{grid-template-columns:repeat(7,1fr)}
+  .zone-grid{grid-template-columns:repeat(2,1fr)}
+  .form .row{grid-template-columns:1fr 1fr}
+  .log-task{flex:1 1 auto}
+  .log-note{flex:1 1 auto}
+  .modal-overlay{align-items:center; padding:20px}
+  .modal{max-width:620px; border-radius:14px}
+}
+/* ============ Desktop (>=1280px) ============ */
+@media (min-width:1280px){
+  .wrap{padding:24px}
+  .profile-grid{grid-template-columns:1.1fr 1.3fr 1fr}
+  .identity-card{grid-row:auto}
+  .skills-grid{grid-template-columns:repeat(4,1fr)}
+  .zone-grid{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+<body>
+<!-- Inline logo symbol: bold white "A" in a reactor ring, green left / red right, dark tile -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="logoSymbol" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="12" fill="#0d120e"/>
+      <rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="#263329" stroke-width="1.5"/>
+      <circle cx="32" cy="32" r="17" fill="none" stroke="#34d17b" stroke-width="5"/>
+      <path d="M 32 15 A 17 17 0 0 1 32 49" fill="none" stroke="#e5484d" stroke-width="5"/>
+      <line x1="32" y1="12" x2="32" y2="18" stroke="#0d120e" stroke-width="7"/>
+      <line x1="32" y1="46" x2="32" y2="52" stroke="#0d120e" stroke-width="7"/>
+      <path fill="#ffffff" fill-rule="evenodd" d="M 32 23 L 40.5 43 L 36.9 43 L 35.2 39.2 L 28.8 39.2 L 27.1 43 L 23.5 43 Z M 32 29.8 L 34.1 36 L 29.9 36 Z"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-logo" aria-hidden="true"><use href="#logoSymbol"/></svg>
+      <div>
+        <div class="brand-name" id="brandName">Mobile Agent Dashboard</div>
+        <div class="brand-sub">Template edition · demo data only</div>
+      </div>
+    </div>
+    <div class="total-chip" title="Sum of all 21 skill levels">
+      <span class="total-chip-label">Total Level</span>
+      <span class="total-chip-num" id="totalLevelChip">21</span>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs" aria-label="Dashboard views">
+    <button class="tab active" data-view="profile">Profile</button>
+    <button class="tab" data-view="skills">Skills</button>
+    <button class="tab" data-view="quests">Quest Book</button>
+    <button class="tab" data-view="inventory">Inventory</button>
+    <button class="tab" data-view="station">Station</button>
+    <button class="tab" data-view="log">Task Log</button>
+    <button class="tab" data-view="weekly">Weekly</button>
+  </nav>
+
+  <!-- ================= PROFILE ================= -->
+  <section class="view" id="view-profile">
+    <div class="profile-grid">
+      <div class="card identity-card">
+        <svg class="identity-logo" aria-hidden="true"><use href="#logoSymbol"/></svg>
+        <h2 id="opName">Operator</h2>
+        <p class="muted" id="opTitle">Business &amp; Finance Agent</p>
+        <div class="medallion"><div class="medallion-inner"><span id="totalLevelBig">21</span><small>Total Level</small></div></div>
+        <p class="muted small">Max total level 2,079 · <span id="totalXpText">0</span> total XP across 21 skills</p>
+        <p class="muted small">Levels come only from the Task Log. No log entry, no XP — that's the rule.</p>
+      </div>
+
+      <div class="card goal-card">
+        <div class="card-head"><h3>Money Goal</h3><span class="pill pill-green" id="goalPct">0%</span></div>
+        <p class="goal-name" id="goalNameText" style="font-weight:600"></p>
+        <div class="bar hp"><div class="bar-fill" id="goalFill"></div></div>
+        <p class="mono" id="goalNumbers"></p>
+        <p class="muted small" id="goalState"></p>
+        <button class="btn btn-ghost" id="toggleGoalForm" type="button">Update goal</button>
+        <form id="goalForm" class="form hidden">
+          <label>Goal name
+            <input name="gname" type="text" maxlength="60" autocomplete="off">
+          </label>
+          <div class="row">
+            <label>Target (<span class="curSym">$</span>)
+              <input name="gtarget" type="number" min="1" step="1" inputmode="numeric">
+            </label>
+            <label>Earned so far (<span class="curSym">$</span>)
+              <input name="gearned" type="number" min="0" step="1" inputmode="numeric">
+            </label>
+          </div>
+          <button class="btn btn-primary" type="submit">Save goal</button>
+        </form>
+      </div>
+
+      <div class="card stats-card">
+        <h3>At a Glance</h3>
+        <div id="glanceRows"></div>
+        <button class="btn btn-ghost danger" id="resetBtn" type="button" style="margin-top:14px">Reset demo data</button>
+        <p class="muted small">Everything is stored only in your browser (localStorage). Reset restores the template starter state.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SKILLS ================= -->
+  <section class="view hidden" id="view-skills">
+    <p class="muted small" style="margin-top:0">Tap any skill for the full detail panel — total XP, the exact level math, and every task-log entry behind the level.</p>
+    <div id="skillsWrap"></div>
+  </section>
+
+  <!-- ================= QUESTS ================= -->
+  <section class="view hidden" id="view-quests">
+    <div id="questsWrap"></div>
+    <div class="card">
+      <h3>Add a quest</h3>
+      <form id="questForm" class="form">
+        <label>Quest title
+          <input name="qtitle" type="text" maxlength="80" required autocomplete="off" placeholder="e.g. Ship the first version">
+        </label>
+        <label>Objective — what does "done" look like?
+          <input name="qobjective" type="text" maxlength="140" autocomplete="off" placeholder="One sentence">
+        </label>
+        <div class="row">
+          <label>Reward
+            <input name="qreward" type="text" maxlength="60" autocomplete="off" placeholder="Cash, XP, an asset, a door opened">
+          </label>
+          <label>Deadline / kill criteria
+            <input name="qdeadline" type="text" maxlength="60" autocomplete="off" placeholder="A date, or a condition that ends it">
+          </label>
+        </div>
+        <button class="btn btn-primary" type="submit">Add quest</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ================= INVENTORY ================= -->
+  <section class="view hidden" id="view-inventory">
+    <p class="muted small" style="margin-top:0">28 slots for project pieces you want visible. Tap a filled slot for full details.</p>
+    <div class="inv-grid" id="invGrid"></div>
+    <div class="card" style="margin-top:14px">
+      <h3>Add an item</h3>
+      <form id="itemForm" class="form">
+        <div class="row">
+          <label>Label
+            <input name="ilabel" type="text" maxlength="60" required autocomplete="off" placeholder="e.g. Pricing decision notes">
+          </label>
+          <label>Type
+            <select name="itype">
+              <option value="file">File</option>
+              <option value="draft">Draft</option>
+              <option value="asset">Asset</option>
+              <option value="lead">Lead</option>
+              <option value="decision">Decision</option>
+              <option value="key date">Key date</option>
+              <option value="link">Link</option>
+            </select>
+          </label>
+        </div>
+        <label>Waiting on
+          <input name="iwaiting" type="text" maxlength="80" autocomplete="off" placeholder="What action is this item waiting for?">
+        </label>
+        <button class="btn btn-primary" type="submit">Add item to first empty slot</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ================= STATION ================= -->
+  <section class="view hidden" id="view-station">
+    <div class="law-banner">Truthful telemetry — the station only shows work the system can prove.</div>
+    <p class="muted small" style="margin-top:0">Template floor: zones light up only when real tools are connected and real work is recorded. In this demo every zone is honestly dark. Tap a zone for its full brief.</p>
+    <div class="zone-grid" id="zoneGrid"></div>
+  </section>
+
+  <!-- ================= TASK LOG ================= -->
+  <section class="view hidden" id="view-log">
+    <div class="card">
+      <h3>Log a completed task</h3>
+      <form id="logForm" class="form">
+        <label>Task — what was actually finished?
+          <input name="ltask" type="text" maxlength="120" required autocomplete="off" placeholder="e.g. Delivered the client brief">
+        </label>
+        <div class="row">
+          <label>Skill
+            <select name="lskill" id="logSkill"></select>
+          </label>
+          <label>XP award (standard sizes only)
+            <select name="lxp">
+              <option value="10">10 XP — small verified task</option>
+              <option value="25" selected>25 XP — solid task</option>
+              <option value="50">50 XP — big deliverable</option>
+              <option value="100">100 XP — major milestone</option>
+            </select>
+          </label>
+        </div>
+        <label>Note / proof reference (optional)
+          <input name="lnote" type="text" maxlength="120" autocomplete="off" placeholder="File name, link, or where the proof lives">
+        </label>
+        <button class="btn btn-primary" type="submit">Log task &amp; award XP</button>
+      </form>
+    </div>
+    <div id="logList"></div>
+  </section>
+
+  <!-- ================= WEEKLY ================= -->
+  <section class="view hidden" id="view-weekly">
+    <div id="weeklyWrap"></div>
+  </section>
+
+  <footer class="foot muted small">
+    Mobile Agent Dashboard — template edition. Demo data only; stored locally in your browser. No accounts, no tracking, no network calls.
+  </footer>
+</div>
+
+<!-- Detail modal -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <h3 id="modalTitle"></h3>
+      <button class="btn btn-ghost" id="modalClose" type="button" aria-label="Close detail panel">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+<div class="toast hidden" id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   CONFIG — forkers: make the station yours here.
+   ===================================================================== */
+const CONFIG = {
+  operatorName: "Operator",
+  operatorTitle: "Business & Finance Agent",
+  stationName: "Mobile Agent Dashboard",
+  goalName: "First Revenue Goal",
+  goalTarget: 1000,
+  currency: "$"
+};
+const STORAGE_KEY = "mobile-agent-dashboard-template-v1";
+
+/* =====================================================================
+   XP — the real RuneScape curve.
+   xp(n) = floor( ( sum_{k=1}^{n-1} floor(k + 300 * 2^(k/7)) ) / 4 )
+   Level 2 = 83 · Level 92 = 6,517,253 · Level 99 = 13,034,431
+   ===================================================================== */
+function xpForLevel(level){
+  if (level <= 1) return 0;
+  let pts = 0;
+  for (let k = 1; k < level; k++){
+    pts += Math.floor(k + 300 * Math.pow(2, k / 7));
+  }
+  return Math.floor(pts / 4);
+}
+const LEVEL_XP = [];
+for (let L = 1; L <= 100; L++) LEVEL_XP[L] = xpForLevel(L);
+function levelFromXP(xp){
+  let lvl = 1;
+  for (let L = 2; L <= 99; L++){
+    if (xp >= LEVEL_XP[L]) lvl = L; else break;
+  }
+  return lvl;
+}
+
+/* =====================================================================
+   The 21 skills, in four schools.
+   ===================================================================== */
+const SCHOOLS = [
+  { name: "School of the Firm", skills: [
+    "Business Strategy", "Operations & Systems", "Leadership",
+    "Execution & Time Management", "Risk Management" ] },
+  { name: "School of Money", skills: [
+    "Finance & Accounting", "Investing & Capital Allocation",
+    "Tax Awareness", "Revenue Generation" ] },
+  { name: "School of the Market", skills: [
+    "Sales", "Marketing", "Branding", "Negotiation",
+    "Partnerships & Networking", "Customer Experience" ] },
+  { name: "School of the Craft", skills: [
+    "Product Development", "Technology & Automation", "Data & Analytics",
+    "Research & Due Diligence", "Legal & Compliance", "Communication" ] }
+];
+const ALL_SKILLS = SCHOOLS.flatMap(s => s.skills);
+function monogram(name){
+  const words = name.replace(/&/g, " ").split(/\s+/).filter(Boolean);
+  return (words[0][0] + (words[1] ? words[1][0] : "")).toUpperCase();
+}
+
+/* =====================================================================
+   The 12 station zones.
+   ===================================================================== */
+const ZONES = [
+  { name: "Command Deck",    fn: "The lead view: overall status, decisions needed, and comms — nothing buried, nothing truncated." },
+  { name: "Research Bay",    fn: "Research agents and source checks. Findings land here before they count as true." },
+  { name: "Builder Workshop",fn: "Files, documents, and builds are produced here and reviewed before delivery." },
+  { name: "Browser Dock",    fn: "Supervised web tasks and live-site work, run as recorded sessions." },
+  { name: "Security Vault",  fn: "Credentials and approvals airlock. Status only — connected or not, pending or cleared. Secrets are never displayed on the floor." },
+  { name: "Outreach War Room", fn: "Client and partner outreach: audits, fix-ups, offers, and follow-up preparation." },
+  { name: "Media Studio",    fn: "Image, video, and social content production, reviewed before anything posts." },
+  { name: "Data Foundry",    fn: "The local worker and bulk data processing: cleaning, summarizing, extraction." },
+  { name: "Agent Dock",      fn: "External agent plug-in point. Lights up when any external agent or framework you plug in reports real events." },
+  { name: "Learning Bridge", fn: "Classes, assignments, and deadlines in one view, next to everything else." },
+  { name: "Treasury",        fn: "The money goal, balances, and a revenue ledger that records only money actually received." },
+  { name: "Outbox",          fn: "Finished deliverables. Work counts as delivered only when it lands here — not as a draft in a chat thread." }
+];
+
+/* =====================================================================
+   State — demo seed + localStorage persistence.
+   Skill XP is COMPUTED from the task log, never stored separately:
+   every level can be audited back to its entries.
+   ===================================================================== */
+function fmtDate(d){
+  const p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+}
+function daysAgo(n){
+  const d = new Date(); d.setDate(d.getDate() - n); return fmtDate(d);
+}
+function uid(){
+  return "x" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+function seedState(){
+  return {
+    goal: { name: CONFIG.goalName, target: CONFIG.goalTarget, earned: 0 },
+    log: [
+      { id: uid(), date: daysAgo(0), task: "Sample: set up the station (delete me)", skill: "Operations & Systems", xp: 50, note: "Demo entry — shows how XP flows from the log" },
+      { id: uid(), date: daysAgo(1), task: "Sample: wrote a one-page project brief", skill: "Communication", xp: 25, note: "Demo entry" },
+      { id: uid(), date: daysAgo(2), task: "Sample: reviewed the weekly numbers", skill: "Finance & Accounting", xp: 10, note: "Demo entry" }
+    ],
+    quests: [
+      { id: uid(), title: "First $20 — Checkpoint 1", status: "Active",
+        objective: "Earn your first $20 from one real offer, delivered to one real customer.",
+        steps: [
+          { text: "Pick one simple offer you can deliver this week", done: true },
+          { text: "Tell 10 people about it", done: false },
+          { text: "Deliver the work", done: false },
+          { text: "Get paid and log it in the Task Log", done: false }
+        ],
+        reward: "$20 and proof the model works", deadline: "Set your own date" },
+      { id: uid(), title: "Launch a Landing Page", status: "Active",
+        objective: "One page, live on the internet, that explains your offer in 30 seconds.",
+        steps: [
+          { text: "Draft the copy", done: true },
+          { text: "Build the page", done: false },
+          { text: "Share the link somewhere real", done: false }
+        ],
+        reward: "An asset you can send anyone", deadline: "None set" },
+      { id: uid(), title: "Template Quest — Your Project Here", status: "Not started",
+        objective: "Replace this demo quest with your first real project.",
+        steps: [
+          { text: "Write the objective in one sentence", done: false },
+          { text: "List the steps in order", done: false },
+          { text: "Name the reward and the kill criteria", done: false }
+        ],
+        reward: "Momentum", deadline: "None set" }
+    ],
+    items: [
+      { id: uid(), slot: 0, label: "Project brief (sample)", type: "file", added: daysAgo(2), waiting: "Nothing — filed and done", quest: "Launch a Landing Page" },
+      { id: uid(), slot: 1, label: "Offer draft v1 (sample)", type: "draft", added: daysAgo(1), waiting: "A yes/no decision on pricing", quest: "First $20 — Checkpoint 1" },
+      { id: uid(), slot: 2, label: "Station logo", type: "asset", added: daysAgo(0), waiting: "Nothing — in use", quest: "" },
+      { id: uid(), slot: 3, label: "First lead (sample)", type: "lead", added: daysAgo(0), waiting: "A follow-up message", quest: "First $20 — Checkpoint 1" },
+      { id: uid(), slot: 7, label: "Decision: keep prices simple", type: "decision", added: daysAgo(1), waiting: "Nothing — decided", quest: "" },
+      { id: uid(), slot: 8, label: "Checkpoint review date", type: "key date", added: daysAgo(0), waiting: "The calendar", quest: "First $20 — Checkpoint 1" }
+    ]
+  };
+}
+function loadState(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s || !Array.isArray(s.log) || !Array.isArray(s.quests) || !Array.isArray(s.items) || !s.goal) return null;
+    return s;
+  } catch (e) { return null; }
+}
+let state = loadState() || seedState();
+function save(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {} }
+
+/* =====================================================================
+   Small utilities
+   ===================================================================== */
+function esc(s){
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function num(n){ return Number(n || 0).toLocaleString("en-US"); }
+function F(form, name){ return form.elements.namedItem(name); }
+function skillXP(skill){
+  return state.log.filter(e => e.skill === skill).reduce((a, e) => a + (Number(e.xp) || 0), 0);
+}
+function totalLevel(){
+  return ALL_SKILLS.reduce((a, s) => a + levelFromXP(skillXP(s)), 0);
+}
+function totalXP(){
+  return state.log.reduce((a, e) => a + (Number(e.xp) || 0), 0);
+}
+let toastTimer = null;
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add("hidden"), 3200);
+}
+
+/* =====================================================================
+   Week helpers (Monday–Sunday, local time)
+   ===================================================================== */
+function startOfWeek(d){
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = (x.getDay() + 6) % 7; // Monday = 0
+  x.setDate(x.getDate() - day);
+  return x;
+}
+function weekRange(offsetWeeks){
+  const start = startOfWeek(new Date());
+  start.setDate(start.getDate() + offsetWeeks * 7);
+  const end = new Date(start); end.setDate(end.getDate() + 6);
+  return { start: fmtDate(start), end: fmtDate(end) };
+}
+function xpInRange(start, end){
+  return state.log.filter(e => e.date >= start && e.date <= end)
+    .reduce((a, e) => a + (Number(e.xp) || 0), 0);
+}
+
+/* =====================================================================
+   Rendering
+   ===================================================================== */
+function renderHeader(){
+  document.getElementById("brandName").textContent = CONFIG.stationName;
+  document.title = CONFIG.stationName;
+  document.getElementById("opName").textContent = CONFIG.operatorName;
+  document.getElementById("opTitle").textContent = CONFIG.operatorTitle;
+  const tl = totalLevel();
+  document.getElementById("totalLevelChip").textContent = tl;
+  document.getElementById("totalLevelBig").textContent = tl;
+  document.getElementById("totalXpText").textContent = num(totalXP());
+}
+function renderGoal(){
+  const g = state.goal;
+  const pct = g.target > 0 ? Math.min(100, Math.floor((g.earned / g.target) * 100)) : 0;
+  document.getElementById("goalNameText").textContent = g.name;
+  document.getElementById("goalNumbers").textContent =
+    CONFIG.currency + num(g.earned) + " of " + CONFIG.currency + num(g.target);
+  document.getElementById("goalPct").textContent = pct + "%";
+  const fill = document.getElementById("goalFill");
+  fill.style.width = pct + "%";
+  fill.classList.toggle("red", pct > 0 && pct < 25);
+  document.getElementById("goalState").textContent =
+    g.earned <= 0 ? "Not started — the bar only moves on money actually received." :
+    pct >= 100 ? "Goal reached. Set the next one." : "In progress — every dollar here was logged, not promised.";
+}
+function renderGlance(){
+  const rows = [];
+  const above1 = ALL_SKILLS.filter(s => levelFromXP(skillXP(s)) > 1).length;
+  const activeQ = state.quests.filter(q => q.status === "Active").length;
+  const wk = weekRange(0);
+  rows.push(["Skills above level 1", above1 + " / 21"]);
+  rows.push(["Active quests", String(activeQ)]);
+  rows.push(["Inventory slots used", state.items.length + " / 28"]);
+  rows.push(["Task log entries", String(state.log.length)]);
+  rows.push(["XP earned this week", num(xpInRange(wk.start, wk.end))]);
+  document.getElementById("glanceRows").innerHTML =
+    rows.map(r => '<div class="kv"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>').join("");
+}
+function renderSkills(){
+  const wrap = document.getElementById("skillsWrap");
+  wrap.innerHTML = SCHOOLS.map(school => {
+    const tiles = school.skills.map(skill => {
+      const xp = skillXP(skill);
+      const lvl = levelFromXP(xp);
+      const cur = LEVEL_XP[lvl], next = LEVEL_XP[Math.min(99, lvl + 1)];
+      const pct = lvl >= 99 ? 100 : Math.floor(((xp - cur) / (next - cur)) * 100);
+      return '<button type="button" class="tile" data-skill="' + esc(skill) + '">' +
+        '<span class="tile-top"><span class="mono-badge">' + esc(monogram(skill)) + '</span>' +
+        '<span class="tile-lvl">' + lvl + '</span></span>' +
+        '<span class="tile-name">' + esc(skill) + '</span>' +
+        '<span class="bar mini"><span class="bar-fill" style="width:' + pct + '%"></span></span>' +
+        '<span class="tile-xp">' + num(xp) + ' XP · ' + (lvl >= 99 ? "Max level" : pct + '% to level ' + (lvl + 1)) + '</span>' +
+        '</button>';
+    }).join("");
+    return '<h3 class="school-title">' + esc(school.name) + '</h3><div class="skills-grid">' + tiles + '</div>';
+  }).join("");
+}
+function statusPill(status){
+  const cls = status === "Active" ? "pill-green" : (status === "Blocked" || status === "Failed") ? "pill-red" : "pill-white";
+  return '<span class="pill ' + cls + '">' + esc(status) + '</span>';
+}
+function renderQuests(){
+  const wrap = document.getElementById("questsWrap");
+  if (!state.quests.length){
+    wrap.innerHTML = '<div class="card"><p class="muted">No quests yet. Add your first one below — a project is a quest line, not a folder.</p></div>';
+    return;
+  }
+  wrap.innerHTML = state.quests.map((q, qi) => {
+    const done = q.steps.filter(s => s.done).length;
+    const pct = q.steps.length ? Math.floor((done / q.steps.length) * 100) : 0;
+    const steps = q.steps.map((s, si) =>
+      '<li><label><input type="checkbox" data-quest="' + qi + '" data-step="' + si + '"' + (s.done ? " checked" : "") + '>' +
+      '<span class="' + (s.done ? "done" : "") + '">' + esc(s.text) + '</span></label></li>').join("");
+    const opts = ["Not started", "Active", "Blocked", "Complete", "Failed"]
+      .map(st => '<option value="' + st + '"' + (q.status === st ? " selected" : "") + '>' + st + '</option>').join("");
+    return '<article class="card quest">' +
+      '<div class="card-head"><h4>' + esc(q.title) + '</h4>' + statusPill(q.status) + '</div>' +
+      '<p>' + esc(q.objective) + '</p>' +
+      '<div class="bar mini"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+      '<p class="muted small">' + done + ' of ' + q.steps.length + ' steps · ' + pct + '%</p>' +
+      '<ul class="steps">' + steps + '</ul>' +
+      '<div class="kv"><span>Reward</span><b>' + esc(q.reward || "—") + '</b></div>' +
+      '<div class="kv"><span>Deadline / kill criteria</span><b>' + esc(q.deadline || "—") + '</b></div>' +
+      '<div class="kv"><span>Status</span><select data-quest-status="' + qi + '" aria-label="Quest status">' + opts + '</select></div>' +
+      '</article>';
+  }).join("");
+}
+function renderInventory(){
+  const grid = document.getElementById("invGrid");
+  let html = "";
+  for (let i = 0; i < 28; i++){
+    const item = state.items.find(it => it.slot === i);
+    if (item){
+      html += '<button type="button" class="slot filled" data-slot="' + i + '">' +
+        '<span class="slot-type">' + esc(item.type) + '</span>' +
+        '<span class="slot-label">' + esc(item.label) + '</span></button>';
+    } else {
+      html += '<div class="slot empty" aria-hidden="true"><span class="slot-type">empty</span></div>';
+    }
+  }
+  grid.innerHTML = html;
+}
+function renderStation(){
+  document.getElementById("zoneGrid").innerHTML = ZONES.map((z, i) =>
+    '<button type="button" class="zone" data-zone="' + i + '">' +
+    '<span class="card-head"><h4>' + esc(z.name) + '</h4><span class="pill pill-red">Not connected</span></span>' +
+    '<p>' + esc(z.fn) + '</p></button>').join("");
+}
+function renderLog(){
+  const list = document.getElementById("logList");
+  const entries = state.log.slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+  if (!entries.length){
+    list.innerHTML = '<div class="card"><p class="muted">The log is empty. Log a finished task above — that is the only way XP exists here.</p></div>';
+    return;
+  }
+  list.innerHTML = entries.map(e =>
+    '<div class="log-row">' +
+    '<span class="log-date mono">' + esc(e.date) + '</span>' +
+    '<span class="log-task">' + esc(e.task) + '</span>' +
+    '<span class="pill pill-green">' + esc(e.skill) + '</span>' +
+    '<span class="log-xp mono">+' + num(e.xp) + ' XP</span>' +
+    (e.note ? '<span class="log-note">' + esc(e.note) + '</span>' : '') +
+    '<button type="button" class="btn btn-ghost danger log-del" data-del-log="' + esc(e.id) + '">Delete</button>' +
+    '</div>').join("");
+}
+function renderWeekly(){
+  const wrap = document.getElementById("weeklyWrap");
+  const cur = weekRange(0), prev = weekRange(-1);
+  const curXP = xpInRange(cur.start, cur.end), prevXP = xpInRange(prev.start, prev.end);
+  const start = startOfWeek(new Date());
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const todayStr = fmtDate(new Date());
+  let maxDay = 1;
+  const perDay = days.map((label, i) => {
+    const d = new Date(start); d.setDate(d.getDate() + i);
+    const ds = fmtDate(d);
+    const xp = xpInRange(ds, ds);
+    if (xp > maxDay) maxDay = xp;
+    return { label, xp, isToday: ds === todayStr };
+  });
+  const bars = perDay.map(d =>
+    '<div class="week-day' + (d.isToday ? " today" : "") + '">' +
+    '<b>' + num(d.xp) + '</b>' +
+    '<div class="week-bar" style="height:' + Math.max(2, Math.round((d.xp / maxDay) * 110)) + 'px"></div>' +
+    '<span>' + d.label + (d.isToday ? " ·" : "") + '</span></div>').join("");
+  const bySkill = {};
+  state.log.filter(e => e.date >= cur.start && e.date <= cur.end)
+    .forEach(e => { bySkill[e.skill] = (bySkill[e.skill] || 0) + (Number(e.xp) || 0); });
+  const ranked = Object.keys(bySkill).sort((a, b) => bySkill[b] - bySkill[a]);
+  const rankHtml = ranked.length
+    ? ranked.map(s => '<div class="rank-row"><span>' + esc(s) + '</span><b class="mono">' + num(bySkill[s]) + ' XP · level ' + levelFromXP(skillXP(s)) + '</b></div>').join("")
+    : '<p class="muted">No XP yet this week. An empty week shows honestly as zero — it is never backfilled.</p>';
+  wrap.innerHTML =
+    '<div class="card"><div class="card-head"><h3>This week</h3><span class="pill pill-green">' + esc(cur.start) + ' → ' + esc(cur.end) + '</span></div>' +
+    '<div class="kv"><span>XP this week</span><b>' + num(curXP) + '</b></div>' +
+    '<div class="kv"><span>XP last week</span><b>' + num(prevXP) + '</b></div>' +
+    '<div class="week-bars">' + bars + '</div>' +
+    '<p class="muted small">Today\'s bar is red. XP counts only from task-log entries dated inside the week.</p></div>' +
+    '<div class="card"><h3>XP by skill this week</h3>' + rankHtml + '</div>';
+}
+function renderAll(){
+  renderHeader(); renderGoal(); renderGlance();
+  renderSkills(); renderQuests(); renderInventory();
+  renderStation(); renderLog(); renderWeekly();
+}
+
+/* =====================================================================
+   Detail modal — click = complete information, nothing truncated.
+   ===================================================================== */
+function openModal(title, html){
+  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalBody").innerHTML = html;
+  document.getElementById("modalOverlay").classList.remove("hidden");
+}
+function closeModal(){
+  document.getElementById("modalOverlay").classList.add("hidden");
+}
+function openSkillDetail(skill){
+  const xp = skillXP(skill);
+  const lvl = levelFromXP(xp);
+  const school = (SCHOOLS.find(s => s.skills.includes(skill)) || {}).name || "";
+  const cur = LEVEL_XP[lvl];
+  const next = LEVEL_XP[Math.min(100, lvl + 1)];
+  const into = xp - cur, span = next - cur;
+  const pct = lvl >= 99 ? 100 : Math.floor((into / span) * 100);
+  const history = state.log.filter(e => e.skill === skill)
+    .slice().sort((a, b) => a.date < b.date ? 1 : -1)
+    .map(e => '<div class="kv"><span>' + esc(e.date) + ' — ' + esc(e.task) + '</span><b>+' + num(e.xp) + ' XP</b></div>').join("");
+  openModal(skill,
+    '<div class="kv"><span>School</span><b>' + esc(school) + '</b></div>' +
+    '<div class="kv"><span>Level</span><b>' + lvl + ' / 99</b></div>' +
+    '<div class="kv"><span>Total XP</span><b>' + num(xp) + '</b></div>' +
+    '<div class="kv"><span>Level ' + lvl + ' begins at</span><b>' + num(cur) + ' XP</b></div>' +
+    (lvl < 99
+      ? '<div class="kv"><span>Level ' + (lvl + 1) + ' begins at</span><b>' + num(next) + ' XP</b></div>' +
+        '<div class="kv"><span>Progress into level</span><b>' + num(into) + ' / ' + num(span) + ' XP (' + pct + '%)</b></div>' +
+        '<div class="kv"><span>XP to next level</span><b>' + num(next - xp) + ' XP</b></div>'
+      : '<div class="kv"><span>Status</span><b>Max level</b></div>') +
+    '<div class="bar mini" style="margin:12px 0"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+    '<p class="muted small">The curve: xp(n) = floor( ( sum of floor(k + 300 · 2^(k/7)) for k = 1..n-1 ) / 4 ). ' +
+    'Level 92 is halfway to 99 — half the XP, seven levels early.</p>' +
+    '<h4 style="margin-top:16px">Task history — the proof</h4>' +
+    (history || '<p class="muted">No logged tasks for this skill yet. Level 1 means nothing has been proven yet — that is by design.</p>'));
+}
+function openItemDetail(item){
+  openModal(item.label,
+    '<div class="kv"><span>Type</span><b>' + esc(item.type) + '</b></div>' +
+    '<div class="kv"><span>Slot</span><b>' + (item.slot + 1) + ' of 28</b></div>' +
+    '<div class="kv"><span>Added</span><b>' + esc(item.added) + '</b></div>' +
+    '<div class="kv"><span>Waiting on</span><b>' + esc(item.waiting || "—") + '</b></div>' +
+    '<div class="kv"><span>Belongs to quest</span><b>' + esc(item.quest || "—") + '</b></div>' +
+    '<button type="button" class="btn btn-ghost danger" id="delItemBtn" style="margin-top:14px">Remove from inventory</button>');
+  document.getElementById("delItemBtn").addEventListener("click", () => {
+    if (!confirm("Remove this item from the inventory?")) return;
+    state.items = state.items.filter(it => it.id !== item.id);
+    save(); renderAll(); closeModal(); toast("Item removed");
+  });
+}
+function openZoneDetail(zone){
+  openModal(zone.name,
+    '<div class="kv"><span>Status</span><b>Template — not connected</b></div>' +
+    '<div class="kv"><span>Function</span><b style="max-width:60%">' + esc(zone.fn) + '</b></div>' +
+    '<p class="muted small" style="margin-top:12px">Under the station law — truthful telemetry — a zone lights up only when a real tool is connected ' +
+    'and real work is recorded flowing through it. This template ships with every zone honestly dark. ' +
+    'Wire your own tools and log your own work; the floor never fakes activity.</p>');
+}
+
+/* =====================================================================
+   Events
+   ===================================================================== */
+document.getElementById("tabs").addEventListener("click", ev => {
+  const btn = ev.target.closest("[data-view]");
+  if (!btn) return;
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t === btn));
+  document.querySelectorAll(".view").forEach(v => v.classList.add("hidden"));
+  document.getElementById("view-" + btn.dataset.view).classList.remove("hidden");
+});
+document.getElementById("skillsWrap").addEventListener("click", ev => {
+  const tile = ev.target.closest("[data-skill]");
+  if (tile) openSkillDetail(tile.dataset.skill);
+});
+document.getElementById("zoneGrid").addEventListener("click", ev => {
+  const z = ev.target.closest("[data-zone]");
+  if (z) openZoneDetail(ZONES[Number(z.dataset.zone)]);
+});
+document.getElementById("invGrid").addEventListener("click", ev => {
+  const slot = ev.target.closest("[data-slot]");
+  if (!slot) return;
+  const item = state.items.find(it => it.slot === Number(slot.dataset.slot));
+  if (item) openItemDetail(item);
+});
+document.getElementById("questsWrap").addEventListener("change", ev => {
+  const cb = ev.target.closest("[data-quest][data-step]");
+  if (cb){
+    state.quests[Number(cb.dataset.quest)].steps[Number(cb.dataset.step)].done = cb.checked;
+    save(); renderQuests(); renderGlance(); return;
+  }
+  const sel = ev.target.closest("[data-quest-status]");
+  if (sel){
+    state.quests[Number(sel.dataset.questStatus)].status = sel.value;
+    save(); renderQuests(); renderGlance();
+  }
+});
+document.getElementById("logList").addEventListener("click", ev => {
+  const btn = ev.target.closest("[data-del-log]");
+  if (!btn) return;
+  if (!confirm("Delete this log entry? Its XP will be removed from the skill — corrections are never silent, so re-log it with a note if this was a fix.")) return;
+  state.log = state.log.filter(e => e.id !== btn.dataset.delLog);
+  save(); renderAll(); toast("Entry deleted — XP recalculated from the log");
+});
+document.getElementById("logForm").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const f = ev.target;
+  const skill = F(f, "lskill").value;
+  const xpVal = Number(F(f, "lxp").value);
+  const taskText = F(f, "ltask").value.trim();
+  if (!taskText) return;
+  const before = levelFromXP(skillXP(skill));
+  state.log.push({
+    id: uid(), date: fmtDate(new Date()),
+    task: taskText, skill: skill,
+    xp: xpVal, note: F(f, "lnote").value.trim()
+  });
+  save(); renderAll();
+  const after = levelFromXP(skillXP(skill));
+  toast(after > before
+    ? "Level up! " + skill + " is now level " + after
+    : "Logged — +" + xpVal + " XP to " + skill);
+  f.reset();
+});
+document.getElementById("questForm").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const f = ev.target;
+  state.quests.push({
+    id: uid(), title: F(f, "qtitle").value.trim(), status: "Not started",
+    objective: F(f, "qobjective").value.trim(),
+    steps: [{ text: "Define the steps for this quest", done: false }],
+    reward: F(f, "qreward").value.trim(), deadline: F(f, "qdeadline").value.trim()
+  });
+  save(); renderAll(); f.reset(); toast("Quest added to the book");
+});
+document.getElementById("itemForm").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const used = new Set(state.items.map(it => it.slot));
+  let free = -1;
+  for (let i = 0; i < 28; i++){ if (!used.has(i)){ free = i; break; } }
+  if (free < 0){ toast("Inventory is full — 28 of 28 slots used"); return; }
+  const f = ev.target;
+  state.items.push({
+    id: uid(), slot: free, label: F(f, "ilabel").value.trim(), type: F(f, "itype").value,
+    added: fmtDate(new Date()), waiting: F(f, "iwaiting").value.trim(), quest: ""
+  });
+  save(); renderAll(); f.reset(); toast("Item added in slot " + (free + 1));
+});
+document.getElementById("toggleGoalForm").addEventListener("click", () => {
+  const form = document.getElementById("goalForm");
+  F(form, "gname").value = state.goal.name;
+  F(form, "gtarget").value = state.goal.target;
+  F(form, "gearned").value = state.goal.earned;
+  form.classList.toggle("hidden");
+});
+document.getElementById("goalForm").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const f = ev.target;
+  state.goal = {
+    name: F(f, "gname").value.trim() || CONFIG.goalName,
+    target: Math.max(1, Number(F(f, "gtarget").value) || CONFIG.goalTarget),
+    earned: Math.max(0, Number(F(f, "gearned").value) || 0)
+  };
+  save(); renderGoal(); renderGlance();
+  f.classList.add("hidden"); toast("Goal updated");
+});
+document.getElementById("resetBtn").addEventListener("click", () => {
+  if (!confirm("Reset everything back to the template demo state? Your logged tasks, quests, items, and goal will be cleared.")) return;
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  state = seedState(); save(); renderAll(); toast("Demo state restored");
+});
+document.getElementById("modalClose").addEventListener("click", closeModal);
+document.getElementById("modalOverlay").addEventListener("click", ev => {
+  if (ev.target === ev.currentTarget) closeModal();
+});
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") closeModal(); });
+
+/* =====================================================================
+   Init
+   ===================================================================== */
+(function init(){
+  const sel = document.getElementById("logSkill");
+  sel.innerHTML = ALL_SKILLS.map(s => '<option value="' + esc(s) + '">' + esc(s) + '</option>').join("");
+  document.querySelectorAll(".curSym").forEach(el => { el.textContent = CONFIG.currency; });
+  save(); // persist the seed on first run
+  renderAll();
+})();
+</script>
+</body>
+</html>
