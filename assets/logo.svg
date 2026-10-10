@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256" role="img" aria-label="Mobile Agent Dashboard logo">
+  <title>Mobile Agent Dashboard logo</title>
+  <!-- Dark tile -->
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="#0d120e"/>
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="#263329" stroke-width="1.5"/>
+  <!-- Reactor ring: green base -->
+  <circle cx="32" cy="32" r="17" fill="none" stroke="#34d17b" stroke-width="5"/>
+  <!-- Reactor ring: red right half -->
+  <path d="M 32 15 A 17 17 0 0 1 32 49" fill="none" stroke="#e5484d" stroke-width="5"/>
+  <!-- Reactor gaps at top and bottom -->
+  <line x1="32" y1="12" x2="32" y2="18" stroke="#0d120e" stroke-width="7"/>
+  <line x1="32" y1="46" x2="32" y2="52" stroke="#0d120e" stroke-width="7"/>
+  <!-- White "A" sigil -->
+  <path fill="#ffffff" fill-rule="evenodd" d="M 32 23 L 40.5 43 L 36.9 43 L 35.2 39.2 L 28.8 39.2 L 27.1 43 L 23.5 43 Z M 32 29.8 L 34.1 36 L 29.9 36 Z"/>
+</svg>
