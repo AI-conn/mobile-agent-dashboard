@@ -13,8 +13,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
   works offline by opening the file.
 - Profile view: operator card with the station logo, total level
   medallion, and an HP-style money-goal bar with an editable goal.
-- Skills view: 21 business/operator skills in four schools, on the real
-  RuneScape XP curve (levels 1–99, max total level 2,079). Click-through
+- Skills view: 21 business/operator skills in four schools, on a classic
+  exponential XP curve (levels 1–99, max total level 2,079). Click-through
   detail panel with full XP math and per-skill task history.
 - Quest Book: quest lines with status, objective, checkable steps,
   reward, and deadline — seeded with clearly-marked demo quests.

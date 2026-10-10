@@ -1,7 +1,7 @@
 # Mobile Agent Dashboard
 
 A gamified operator dashboard that treats your work like a character sheet:
-**21 skills** that level on the real RuneScape XP curve, a **quest book**, a
+**21 skills** that level on a classic exponential XP curve, a **quest book**, a
 **28-slot inventory**, an **agent-ops station floor**, and a **task log** that
 is the proof behind every level. Nothing levels up on claims — XP is earned
 only from logged, completed work.
@@ -110,7 +110,7 @@ Change the tokens and the whole station follows. The logo
 
 ## How XP works
 
-Levels run **1–99** per skill, on the real RuneScape curve. The total XP
+Levels run **1–99** per skill, on a classic exponential curve. The total XP
 required for level *n* is:
 
 ```text

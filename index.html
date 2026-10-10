@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mobile Agent Dashboard</title>
-<meta name="description" content="Mobile Agent Dashboard — a gamified operator dashboard template. 21 skills on the real RuneScape XP curve, a quest book, a 28-slot inventory, and a truthful agent-ops station floor. Demo data only, stored in your browser.">
+<meta name="description" content="Mobile Agent Dashboard — a gamified operator dashboard template. 21 skills on a classic exponential XP curve, a quest book, a 28-slot inventory, and a truthful agent-ops station floor. Demo data only, stored in your browser.">
 <style>
 /* ============ Theme tokens — edit these to re-theme the station ============ */
 :root{
@@ -467,7 +467,7 @@ const CONFIG = {
 const STORAGE_KEY = "mobile-agent-dashboard-template-v1";
 
 /* =====================================================================
-   XP — the real RuneScape curve.
+   XP — a classic exponential curve.
    xp(n) = floor( ( sum_{k=1}^{n-1} floor(k + 300 * 2^(k/7)) ) / 4 )
    Level 2 = 83 · Level 92 = 6,517,253 · Level 99 = 13,034,431
    ===================================================================== */
