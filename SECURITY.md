@@ -4,7 +4,12 @@
 
 Mobile Agent Dashboard (template edition) is a single static HTML file. It has:
 
-- **No backend, no accounts, no analytics, no network calls.**
+- **No backend, no accounts, no analytics, and no network calls by
+  default.** The one exception is opt-in: if you set `CONFIG.feedUrl`
+  (Agent Live Sync), the page polls that single URL — one you chose and
+  control — to merge progress your agent publishes. Nothing else is
+  ever fetched, and with `feedUrl` empty (the default) the page makes
+  zero network requests.
 - **No data collection.** Everything you enter — task log entries, quests,
   inventory items, goal numbers — is stored only in your own browser's
   `localStorage`, on your own machine, under the key

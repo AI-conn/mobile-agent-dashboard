@@ -1,14 +1,28 @@
 # Mobile Agent Dashboard
 
 A gamified operator dashboard that treats your work like a character sheet:
-**21 skills** that level on a classic exponential XP curve, a **quest book**, a
-**28-slot inventory**, an **agent-ops station floor**, and a **task log** that
-is the proof behind every level. Nothing levels up on claims — XP is earned
-only from logged, completed work.
+**21 skills** charging toward Full Charge on an exponential XP curve, a
+**quest book**, a **28-slot inventory**, an **agent-ops station floor**, and
+a **task log** that is the proof behind every level. Nothing charges up on
+claims — XP is earned only from logged, completed work.
 
 This is the **template edition**: a single self-contained `index.html` with
 demo data, ready to fork and make your own. No build step, no dependencies,
 no accounts, no tracking. All data lives in your browser's `localStorage`.
+
+## Why a phone dashboard?
+
+Agent dashboards already exist — for the PC. Station-style desktops, local
+agent harnesses, and ops views all assume you're sitting at a computer. But
+the agent in most people's pocket lives on their phone. This dashboard is
+built phone-first: your agent's skills, quests, and proof of work, one thumb
+away.
+
+It was initially designed and built with **Muse** — on iPhone, Muse is
+the agent people actually run day to day (there is no Hermes app for iOS;
+other agents reach the phone through their own chat apps, like Grok). The
+dashboard itself stays agent-agnostic: whatever agent you run, on whatever
+device, can drive it.
 
 ## Works with any agent
 
@@ -46,6 +60,15 @@ and no phoning home. Work you enter stays in your browser's `localStorage`.
 - **Persistence** — everything saves automatically to `localStorage`
   under the key `mobile-agent-dashboard-template-v1`.
   A reset button restores the demo state.
+- **Export / Import** — your whole dashboard (goal, task log, quests,
+  items, zone reports) exports to one JSON file and imports back anywhere,
+  with shape validation that fails safely. Progress survives browser
+  changes and moves between phone and PC — it is no longer trapped in
+  one browser.
+- **Agent Live Sync** — a built-in bridge API (`window.AgentDashboard`),
+  cross-tab sync, and an optional JSON feed your agent publishes, so
+  progress lands on the dashboard *as work happens* — not when someone
+  remembers to type it in. See "Keeping your dashboard alive" below.
 
 ## Quick start
 
@@ -108,25 +131,143 @@ palette is deliberately strict — **green, red, and white on dark neutrals**:
 Change the tokens and the whole station follows. The logo
 (`assets/logo.svg`, also inlined in the header) uses the same palette.
 
-## How XP works
+## The Core Charge system
 
-Levels run **1–99** per skill, on a classic exponential curve. The total XP
-required for level *n* is:
+Progression here is a charge metaphor for real work — no borrowed game
+identity. Every skill is a **core**, and every logged task charges it.
+
+- **Charge** is a skill's XP expressed as a share of **Full Charge**:
+  13,034,431 XP, the most a single core can hold. Skill tiles and detail
+  panels always show charge % alongside the level.
+- Under the hood the charge accumulates on a classic exponential curve.
+  Skills still advance level by level (1–99) — think of the level as the
+  odometer and the charge as the fuel gauge. The total XP required for
+  level *n*:
 
 ```text
 xp(n) = floor( ( Σ for k = 1..n-1 of floor(k + 300 · 2^(k/7)) ) / 4 )
 ```
 
-Landmarks: level 2 = 83 XP · level 92 = 6,517,253 XP (halfway) ·
-level 99 = 13,034,431 XP. Max total level across 21 skills: **2,079**.
+- **The Half-Charge Mark** sits at **6,517,216 XP** — the point where a
+  skill has banked half of all the XP a maxed core will ever need. On an
+  exponential curve that moment arrives far later than intuition says;
+  past it, progress stops crawling and starts compounding. The dashboard
+  flags the mark on every skill once it is crossed.
+- **Full Charge** is a maxed core: 13,034,431 XP, earned one logged task
+  at a time. First landmark on the way: level 2, at 83 XP.
 
 House rules baked into the template:
 
-- Awards are standardized: **10 / 25 / 50 / 100 XP** per logged task.
+- Awards are standardized: **10 / 25 / 50 / 100 XP** per logged task —
+  the form, the bridge, and the feed all enforce the same sizes; no other
+  award can enter the system.
 - No XP for drafts, plans, or claims — only completed, logged work.
 - Skill XP is the sum of that skill's task-log entries. Delete an entry and
   the XP goes with it; corrections are never silent.
-- Levels rise gradually and together. It's a marathon scale on purpose.
+- Charge rises gradually and together across skills. It's a marathon
+  scale on purpose.
+
+v1.0 saves carry over untouched — v1.1 changed the language and the
+instruments, not the math.
+
+## Keeping your dashboard alive — Agent Live Sync
+
+Manual entry works, but a dashboard that only moves when you type into it
+goes stale. v1.1 ships three built-in channels so *whatever agent you
+use* can keep it current as work happens. All three write to the same
+store as the UI, pass the same validation, and re-render instantly.
+
+### 1. The in-page Agent Bridge
+
+Any agent that can run JavaScript in the page — a browser-automation
+agent, a bookmarklet, your own script — gets a global API:
+
+```js
+// Log finished work (xp must be 10, 25, 50, or 100)
+AgentDashboard.logWork({
+  task: "Delivered the client brief",   // what was actually finished
+  skill: "Communication",               // one of the 21 skill names
+  xp: 25,
+  note: "brief-v2.pdf"                  // optional proof reference
+});
+
+// Move a quest: a step checkbox and/or the status
+AgentDashboard.setQuestProgress({ quest: "Launch a Landing Page", step: 1, done: true });
+AgentDashboard.setQuestProgress({ quest: "Launch a Landing Page", status: "Complete" });
+
+// Report a station zone's real status (report only what's real)
+AgentDashboard.setZoneStatus({ zone: "Research Bay", status: "Connected", note: "2 sources checked today" });
+
+// Read the state, or move it wholesale
+AgentDashboard.getState();
+AgentDashboard.exportJSON();              // -> JSON string
+AgentDashboard.importJSON(jsonString);    // -> true/false
+```
+
+Invalid input is rejected safely — the call returns `false` and nothing
+changes. Give a log entry an `id` and re-sending it is a no-op, so
+retries can never double-count XP.
+
+### 2. Cross-tab sync
+
+Open the dashboard in two tabs and they stay in lockstep: any change —
+yours, the bridge's, the feed's — broadcasts to every open copy the
+moment it happens (`BroadcastChannel`, with the `storage` event as
+fallback).
+
+### 3. The agent feed (optional, off by default)
+
+The push channel for agents that can't touch your browser: your agent
+publishes one JSON file anywhere reachable — a static host, a gist, a
+local server — and the dashboard polls it and merges what's new.
+
+**Honest default: this is OFF.** With `feedUrl` empty the page makes
+**zero network requests**, exactly like v1.0. Turn it on with one change
+in the `CONFIG` object at the top of `index.html`:
+
+```js
+feedUrl: "https://example.com/my-agent-feed.json",
+feedPollSeconds: 15
+```
+
+Feed format — every section is optional, and unknown or invalid items
+are skipped, never fatal:
+
+```json
+{
+  "app": "mobile-agent-dashboard-feed",
+  "version": 1,
+  "log": [
+    { "id": "2026-10-09-brief", "date": "2026-10-09",
+      "task": "Delivered the client brief", "skill": "Communication",
+      "xp": 25, "note": "brief-v2.pdf" }
+  ],
+  "quests": [
+    { "title": "Launch a Landing Page", "status": "Active",
+      "steps": [ { "index": 1, "done": true } ] }
+  ],
+  "zones": [
+    { "name": "Research Bay", "status": "Connected", "note": "Working" }
+  ]
+}
+```
+
+Merging is idempotent by entry `id`: publish the same feed forever and
+nothing double-counts; add an entry with a new `id` and it lands within
+one poll interval. Give every entry an `id` — entries without one are
+deduplicated by a hash of their content (date + skill + task + xp +
+note), which stops double-counting but also means two genuinely
+different tasks with identical text would be treated as one. A failed
+or malformed feed changes nothing and retries quietly on the next poll.
+
+**The log entry format** — the same shape everywhere (form, bridge,
+feed, exports): `id` (unique string), `date` (`YYYY-MM-DD`), `task`
+(what was finished), `skill` (one of the 21 skill names), `xp`
+(10 / 25 / 50 / 100), `note` (optional proof reference).
+
+One browser caveat: feed polling needs the page served over http(s) in
+most browsers — opening `index.html` as a `file://` can block `fetch`.
+The bridge and cross-tab sync work either way.
 
 ## Screenshots
 
@@ -143,6 +284,7 @@ mobile-agent-dashboard/
 ├── assets/
 │   └── logo.svg        # the station logo (also inlined in index.html)
 ├── README.md
+├── AUDIT-v1.1.md       # the v1.1 audit: findings, fixes, deferrals
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
 ├── SECURITY.md
@@ -182,6 +324,13 @@ Both reviews are a required step before any public release.
   A final automated pass re-checked JS syntax, XP values, the palette,
   storage-key consistency across `index.html`, `README.md`, and
   `SECURITY.md`, and a 21-assertion functional smoke test — all passing.
+- **v1.1 audit (2026-10-09) — findings in [AUDIT-v1.1.md](AUDIT-v1.1.md).**
+  Focus: per-user progression for every fork, progression portability
+  (export/import), the Core Charge reframe, and Agent Live Sync. All
+  high- and medium-severity findings were fixed and are covered by an
+  automated smoke test: the fresh-user loop (add work → XP and levels
+  move), export → wipe → import restore, bridge/feed idempotency, and
+  Half-Charge / Full-Charge label rendering.
 
 ## Contributing
 

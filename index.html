@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mobile Agent Dashboard</title>
-<meta name="description" content="Mobile Agent Dashboard — a gamified operator dashboard template. 21 skills on a classic exponential XP curve, a quest book, a 28-slot inventory, and a truthful agent-ops station floor. Demo data only, stored in your browser.">
+<meta name="description" content="Mobile Agent Dashboard — a gamified operator dashboard template. 21 skills charging toward Full Charge on an exponential XP curve, a quest book, a 28-slot inventory, and a truthful agent-ops station floor. Demo data only, stored in your browser.">
 <style>
 /* ============ Theme tokens — edit these to re-theme the station ============ */
 :root{
@@ -189,6 +189,8 @@ button{font:inherit; color:inherit}
 .log-xp{color:var(--green); font-weight:700}
 .log-note{color:var(--muted); font-size:.85rem; flex:1 1 100%}
 .log-del{min-height:44px; padding:8px 12px}
+.log-task,.log-note{overflow-wrap:anywhere}
+.kv b{overflow-wrap:anywhere}
 /* ============ Weekly ============ */
 .week-bars{display:flex; align-items:flex-end; gap:8px; height:150px; padding-top:10px}
 .week-day{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; height:100%; justify-content:flex-end}
@@ -294,7 +296,7 @@ button{font:inherit; color:inherit}
         <h2 id="opName">Operator</h2>
         <p class="muted" id="opTitle">Business &amp; Finance Agent</p>
         <div class="medallion"><div class="medallion-inner"><span id="totalLevelBig">21</span><small>Total Level</small></div></div>
-        <p class="muted small">Max total level 2,079 · <span id="totalXpText">0</span> total XP across 21 skills</p>
+        <p class="muted small"><span id="totalXpText">0</span> total XP across 21 skills · ⚡ <span id="totalChargeText">0</span>% of combined Full Charge</p>
         <p class="muted small">Levels come only from the Task Log. No log entry, no XP — that's the rule.</p>
       </div>
 
@@ -324,8 +326,14 @@ button{font:inherit; color:inherit}
       <div class="card stats-card">
         <h3>At a Glance</h3>
         <div id="glanceRows"></div>
-        <button class="btn btn-ghost danger" id="resetBtn" type="button" style="margin-top:14px">Reset demo data</button>
-        <p class="muted small">Everything is stored only in your browser (localStorage). Reset restores the template starter state.</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px">
+          <button class="btn btn-ghost" id="exportBtn" type="button">Export progress (JSON)</button>
+          <button class="btn btn-ghost" id="importBtn" type="button">Import progress (JSON)</button>
+          <input type="file" id="importFile" accept="application/json,.json" class="hidden">
+        </div>
+        <button class="btn btn-ghost" id="freshBtn" type="button" style="margin-top:10px">Clear demo data &amp; start fresh</button>
+        <button class="btn btn-ghost danger" id="resetBtn" type="button" style="margin-top:10px">Reset demo data</button>
+        <p class="muted small">Everything is stored only in your browser (localStorage). Export your progress as JSON to move it between phone and PC or keep a backup — browsers can clear localStorage without asking. Reset restores the template starter state.</p>
       </div>
     </div>
   </section>
@@ -395,7 +403,7 @@ button{font:inherit; color:inherit}
   <!-- ================= STATION ================= -->
   <section class="view hidden" id="view-station">
     <div class="law-banner">Truthful telemetry — the station only shows work the system can prove.</div>
-    <p class="muted small" style="margin-top:0">Template floor: zones light up only when real tools are connected and real work is recorded. In this demo every zone is honestly dark. Tap a zone for its full brief.</p>
+    <p class="muted small" style="margin-top:0">Template floor: zones light up only when real tools are connected and real work is recorded — an agent can report a zone's real status through Agent Live Sync (see the README). Until then every zone is honestly dark. Tap a zone for its full brief.</p>
     <div class="zone-grid" id="zoneGrid"></div>
   </section>
 
@@ -462,14 +470,26 @@ const CONFIG = {
   stationName: "Mobile Agent Dashboard",
   goalName: "First Revenue Goal",
   goalTarget: 1000,
-  currency: "$"
+  currency: "$",
+  /* Agent Live Sync feed — leave feedUrl empty ("") for a fully offline
+     page: zero network requests, exactly like v1.0. Set it to a JSON URL
+     your agent publishes and the dashboard will poll it and merge new
+     work in as it happens. See "Keeping your dashboard alive" in README. */
+  feedUrl: "",
+  feedPollSeconds: 15
 };
 const STORAGE_KEY = "mobile-agent-dashboard-template-v1";
 
 /* =====================================================================
-   XP — a classic exponential curve.
+   XP — the Core Charge system.
+   Under the hood: a classic exponential curve, unchanged from v1.0 so
+   saved progress carries over exactly.
    xp(n) = floor( ( sum_{k=1}^{n-1} floor(k + 300 * 2^(k/7)) ) / 4 )
-   Level 2 = 83 · Level 92 = 6,517,253 · Level 99 = 13,034,431
+   Level 2 = 83 XP · Full Charge (a maxed core) = 13,034,431 XP.
+   Charge % = a skill's XP as a share of Full Charge. The Half-Charge
+   Mark (6,517,216 XP) is where half of all the XP a maxed skill will
+   ever need is banked — past it, progress stops crawling and starts
+   compounding.
    ===================================================================== */
 function xpForLevel(level){
   if (level <= 1) return 0;
@@ -488,6 +508,18 @@ function levelFromXP(xp){
   }
   return lvl;
 }
+const MAX_LEVEL = 99;
+const MAX_XP = LEVEL_XP[MAX_LEVEL];            // 13,034,431 — Full Charge
+const HALF_CHARGE_XP = Math.ceil(MAX_XP / 2);  // 6,517,216 — the Half-Charge Mark
+const VALID_AWARDS = [10, 25, 50, 100];
+const QUEST_STATUSES = ["Not started", "Active", "Blocked", "Complete", "Failed"];
+function chargePct(xp){ return Math.min(100, (Number(xp) || 0) / MAX_XP * 100); }
+function fmtPct(p){
+  if (p >= 100) return "100";
+  if (p > 0 && p < 0.01) return "<0.01";
+  return String(Math.round(p * 100) / 100);
+}
+function halfChargePassed(xp){ return (Number(xp) || 0) >= HALF_CHARGE_XP; }
 
 /* =====================================================================
    The 21 skills, in four schools.
@@ -587,20 +619,132 @@ function seedState(){
       { id: uid(), slot: 3, label: "First lead (sample)", type: "lead", added: daysAgo(0), waiting: "A follow-up message", quest: "First $20 — Checkpoint 1" },
       { id: uid(), slot: 7, label: "Decision: keep prices simple", type: "decision", added: daysAgo(1), waiting: "Nothing — decided", quest: "" },
       { id: uid(), slot: 8, label: "Checkpoint review date", type: "key date", added: daysAgo(0), waiting: "The calendar", quest: "First $20 — Checkpoint 1" }
-    ]
+    ],
+    zones: {}
   };
+}
+/* =====================================================================
+   State validation — every path that brings data in (stored state,
+   import, bridge, feed) passes through here. Unknown skills,
+   non-standard awards, duplicate inventory slots, and invalid quest
+   statuses are dropped or cleaned, never silently trusted.
+   ===================================================================== */
+function cleanStr(v, max){ return String(v == null ? "" : v).slice(0, max || 200); }
+function sanitizeState(s){
+  if (!s || typeof s !== "object" || Array.isArray(s)) return null;
+  if (!Array.isArray(s.log) || !Array.isArray(s.quests) || !Array.isArray(s.items) || !s.goal || typeof s.goal !== "object") return null;
+  const out = {
+    goal: {
+      name: cleanStr(s.goal.name, 60) || CONFIG.goalName,
+      target: Math.max(1, Number(s.goal.target) || CONFIG.goalTarget),
+      earned: Math.max(0, Number(s.goal.earned) || 0)
+    },
+    log: [], quests: [], items: [], zones: {}
+  };
+  const seenIds = new Set();
+  s.log.forEach(e => {
+    if (!e || typeof e !== "object") return;
+    const skill = ALL_SKILLS.includes(e.skill) ? e.skill : null;
+    const xp = Number(e.xp);
+    const task = cleanStr(e.task, 120).trim();
+    if (!skill || !VALID_AWARDS.includes(xp) || !task) return;
+    let id = cleanStr(e.id, 64) || uid();
+    if (seenIds.has(id)) id = uid();
+    seenIds.add(id);
+    out.log.push({
+      id: id,
+      date: /^\d{4}-\d{2}-\d{2}$/.test(e.date || "") ? e.date : fmtDate(new Date()),
+      task: task, skill: skill, xp: xp,
+      note: cleanStr(e.note, 120),
+      source: ["bridge", "feed"].includes(e.source) ? e.source : ""
+    });
+  });
+  s.quests.forEach(q => {
+    if (!q || typeof q !== "object") return;
+    const title = cleanStr(q.title, 80).trim();
+    if (!title) return;
+    const steps = Array.isArray(q.steps)
+      ? q.steps.filter(st => st && typeof st === "object" && cleanStr(st.text, 140).trim())
+               .map(st => ({ text: cleanStr(st.text, 140), done: !!st.done }))
+      : [];
+    out.quests.push({
+      id: cleanStr(q.id, 64) || uid(), title: title,
+      status: QUEST_STATUSES.includes(q.status) ? q.status : "Not started",
+      objective: cleanStr(q.objective, 140),
+      steps: steps.length ? steps : [{ text: "Define the steps for this quest", done: false }],
+      reward: cleanStr(q.reward, 60), deadline: cleanStr(q.deadline, 60)
+    });
+  });
+  const usedSlots = new Set();
+  s.items.forEach(it => {
+    if (!it || typeof it !== "object") return;
+    const slot = Number(it.slot);
+    const label = cleanStr(it.label, 60).trim();
+    if (!label || !Number.isInteger(slot) || slot < 0 || slot > 27 || usedSlots.has(slot)) return;
+    usedSlots.add(slot);
+    out.items.push({
+      id: cleanStr(it.id, 64) || uid(), slot: slot, label: label,
+      type: cleanStr(it.type, 20) || "file",
+      added: /^\d{4}-\d{2}-\d{2}$/.test(it.added || "") ? it.added : fmtDate(new Date()),
+      waiting: cleanStr(it.waiting, 80), quest: cleanStr(it.quest, 80)
+    });
+  });
+  if (s.zones && typeof s.zones === "object" && !Array.isArray(s.zones)){
+    Object.keys(s.zones).forEach(name => {
+      if (!ZONES.some(z => z.name === name)) return;
+      const z = s.zones[name];
+      if (!z || typeof z !== "object" || !cleanStr(z.status, 40).trim()) return;
+      out.zones[name] = { status: cleanStr(z.status, 40), note: cleanStr(z.note, 140) };
+    });
+  }
+  return out;
 }
 function loadState(){
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const s = JSON.parse(raw);
-    if (!s || !Array.isArray(s.log) || !Array.isArray(s.quests) || !Array.isArray(s.items) || !s.goal) return null;
-    return s;
+    return sanitizeState(JSON.parse(raw));
   } catch (e) { return null; }
 }
 let state = loadState() || seedState();
-function save(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {} }
+
+/* =====================================================================
+   Persistence + cross-tab live sync.
+   save() writes localStorage AND broadcasts the new state to every
+   other open copy of the dashboard (BroadcastChannel, with the
+   `storage` event as the fallback path). Applying a remote state
+   never re-broadcasts, so tabs cannot loop.
+   ===================================================================== */
+let applyingRemote = false;
+const syncChannel = ("BroadcastChannel" in window) ? new BroadcastChannel("mobile-agent-dashboard") : null;
+function writeStored(){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+function save(){
+  writeStored();
+  if (!applyingRemote && syncChannel){
+    try { syncChannel.postMessage({ type: "state", state: state }); } catch (e) {}
+  }
+}
+function applyExternalState(candidate){
+  const s = sanitizeState(candidate);
+  if (!s) return false;
+  applyingRemote = true;
+  state = s;
+  writeStored();
+  applyingRemote = false;
+  renderAll();
+  return true;
+}
+if (syncChannel){
+  syncChannel.onmessage = ev => {
+    if (ev && ev.data && ev.data.type === "state") applyExternalState(ev.data.state);
+  };
+}
+window.addEventListener("storage", ev => {
+  if (ev.key !== STORAGE_KEY || !ev.newValue) return;
+  try { applyExternalState(JSON.parse(ev.newValue)); } catch (e) {}
+});
 
 /* =====================================================================
    Small utilities
@@ -662,6 +806,8 @@ function renderHeader(){
   document.getElementById("totalLevelChip").textContent = tl;
   document.getElementById("totalLevelBig").textContent = tl;
   document.getElementById("totalXpText").textContent = num(totalXP());
+  document.getElementById("totalChargeText").textContent =
+    fmtPct(Math.min(100, totalXP() / (ALL_SKILLS.length * MAX_XP) * 100));
 }
 function renderGoal(){
   const g = state.goal;
@@ -703,7 +849,8 @@ function renderSkills(){
         '<span class="tile-lvl">' + lvl + '</span></span>' +
         '<span class="tile-name">' + esc(skill) + '</span>' +
         '<span class="bar mini"><span class="bar-fill" style="width:' + pct + '%"></span></span>' +
-        '<span class="tile-xp">' + num(xp) + ' XP · ' + (lvl >= 99 ? "Max level" : pct + '% to level ' + (lvl + 1)) + '</span>' +
+        '<span class="tile-xp">' + num(xp) + ' XP · ' + (lvl >= 99 ? "Full Charge ⚡" : pct + '% to level ' + (lvl + 1)) +
+        '<br>⚡ ' + fmtPct(chargePct(xp)) + '% of Full Charge' + (lvl < 99 && halfChargePassed(xp) ? ' · Half-Charge Mark passed ⚡' : '') + '</span>' +
         '</button>';
     }).join("");
     return '<h3 class="school-title">' + esc(school.name) + '</h3><div class="skills-grid">' + tiles + '</div>';
@@ -754,11 +901,21 @@ function renderInventory(){
   }
   grid.innerHTML = html;
 }
+function zoneStatus(name){
+  const z = state.zones && state.zones[name];
+  if (z && z.status) return z;
+  return { status: "Not connected", note: "" };
+}
 function renderStation(){
-  document.getElementById("zoneGrid").innerHTML = ZONES.map((z, i) =>
-    '<button type="button" class="zone" data-zone="' + i + '">' +
-    '<span class="card-head"><h4>' + esc(z.name) + '</h4><span class="pill pill-red">Not connected</span></span>' +
-    '<p>' + esc(z.fn) + '</p></button>').join("");
+  document.getElementById("zoneGrid").innerHTML = ZONES.map((z, i) => {
+    const zs = zoneStatus(z.name);
+    const cls = zs.status === "Not connected" ? "pill-red"
+      : (zs.status === "Connected" || zs.status === "Live") ? "pill-green" : "pill-white";
+    return '<button type="button" class="zone" data-zone="' + i + '">' +
+    '<span class="card-head"><h4>' + esc(z.name) + '</h4><span class="pill ' + cls + '">' + esc(zs.status) + '</span></span>' +
+    '<p>' + esc(z.fn) + '</p>' +
+    (zs.note ? '<p class="small" style="color:var(--green)">' + esc(zs.note) + '</p>' : '') + '</button>';
+  }).join("");
 }
 function renderLog(){
   const list = document.getElementById("logList");
@@ -769,7 +926,7 @@ function renderLog(){
   }
   list.innerHTML = entries.map(e =>
     '<div class="log-row">' +
-    '<span class="log-date mono">' + esc(e.date) + '</span>' +
+    '<span class="log-date mono">' + esc(e.date) + (e.source ? ' · via ' + esc(e.source) : '') + '</span>' +
     '<span class="log-task">' + esc(e.task) + '</span>' +
     '<span class="pill pill-green">' + esc(e.skill) + '</span>' +
     '<span class="log-xp mono">+' + num(e.xp) + ' XP</span>' +
@@ -825,6 +982,7 @@ function openModal(title, html){
   document.getElementById("modalTitle").textContent = title;
   document.getElementById("modalBody").innerHTML = html;
   document.getElementById("modalOverlay").classList.remove("hidden");
+  document.getElementById("modalClose").focus();
 }
 function closeModal(){
   document.getElementById("modalOverlay").classList.add("hidden");
@@ -842,17 +1000,23 @@ function openSkillDetail(skill){
     .map(e => '<div class="kv"><span>' + esc(e.date) + ' — ' + esc(e.task) + '</span><b>+' + num(e.xp) + ' XP</b></div>').join("");
   openModal(skill,
     '<div class="kv"><span>School</span><b>' + esc(school) + '</b></div>' +
-    '<div class="kv"><span>Level</span><b>' + lvl + ' / 99</b></div>' +
+    '<div class="kv"><span>Level</span><b>' + lvl + '</b></div>' +
+    '<div class="kv"><span>Charge</span><b>⚡ ' + fmtPct(chargePct(xp)) + '% of Full Charge</b></div>' +
     '<div class="kv"><span>Total XP</span><b>' + num(xp) + '</b></div>' +
     '<div class="kv"><span>Level ' + lvl + ' begins at</span><b>' + num(cur) + ' XP</b></div>' +
     (lvl < 99
       ? '<div class="kv"><span>Level ' + (lvl + 1) + ' begins at</span><b>' + num(next) + ' XP</b></div>' +
         '<div class="kv"><span>Progress into level</span><b>' + num(into) + ' / ' + num(span) + ' XP (' + pct + '%)</b></div>' +
         '<div class="kv"><span>XP to next level</span><b>' + num(next - xp) + ' XP</b></div>'
-      : '<div class="kv"><span>Status</span><b>Max level</b></div>') +
+      : '<div class="kv"><span>Status</span><b>Full Charge ⚡ — this core is maxed</b></div>') +
+    '<div class="kv"><span>Half-Charge Mark (' + num(HALF_CHARGE_XP) + ' XP)</span><b>' + (halfChargePassed(xp)
+      ? 'Passed ⚡'
+      : num(HALF_CHARGE_XP - xp) + ' XP to go') + '</b></div>' +
+    '<div class="kv"><span>Full Charge at</span><b>' + num(MAX_XP) + ' XP</b></div>' +
     '<div class="bar mini" style="margin:12px 0"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
-    '<p class="muted small">The curve: xp(n) = floor( ( sum of floor(k + 300 · 2^(k/7)) for k = 1..n-1 ) / 4 ). ' +
-    'Level 92 is halfway to 99 — half the XP, seven levels early.</p>' +
+    '<p class="muted small">Charge is this skill\'s XP as a share of Full Charge (' + num(MAX_XP) + ' XP) — the most a core can hold. ' +
+    'The Half-Charge Mark is where half of that total is banked: on an exponential curve it arrives far later than intuition says, ' +
+    'and past it progress stops crawling and starts compounding. The curve itself: xp(n) = floor( ( sum of floor(k + 300 · 2^(k/7)) for k = 1..n-1 ) / 4 ).</p>' +
     '<h4 style="margin-top:16px">Task history — the proof</h4>' +
     (history || '<p class="muted">No logged tasks for this skill yet. Level 1 means nothing has been proven yet — that is by design.</p>'));
 }
@@ -871,12 +1035,161 @@ function openItemDetail(item){
   });
 }
 function openZoneDetail(zone){
+  const zs = zoneStatus(zone.name);
   openModal(zone.name,
-    '<div class="kv"><span>Status</span><b>Template — not connected</b></div>' +
+    '<div class="kv"><span>Status</span><b>' + esc(zs.status) + '</b></div>' +
+    (zs.note ? '<div class="kv"><span>Latest report</span><b>' + esc(zs.note) + '</b></div>' : '') +
     '<div class="kv"><span>Function</span><b style="max-width:60%">' + esc(zone.fn) + '</b></div>' +
     '<p class="muted small" style="margin-top:12px">Under the station law — truthful telemetry — a zone lights up only when a real tool is connected ' +
     'and real work is recorded flowing through it. This template ships with every zone honestly dark. ' +
     'Wire your own tools and log your own work; the floor never fakes activity.</p>');
+}
+
+/* =====================================================================
+   Export / Import — your progress is a file you own.
+   Export: the full state as one JSON document. Import: validated by
+   sanitizeState and refused (no state change) if the shape is wrong.
+   ===================================================================== */
+function exportJSON(){
+  return JSON.stringify({
+    app: "mobile-agent-dashboard",
+    format: 1,
+    exportedAt: new Date().toISOString(),
+    state: state
+  }, null, 2);
+}
+function importJSON(text){
+  let parsed;
+  try { parsed = JSON.parse(text); } catch (e) { return false; }
+  if (!parsed || typeof parsed !== "object") return false;
+  const candidate = parsed.state ? parsed.state : parsed;
+  if (!applyExternalState(candidate)) return false;
+  save(); // broadcast the imported state to other open copies
+  return true;
+}
+
+/* =====================================================================
+   Agent Live Sync — the in-page Agent Bridge.
+   Any agent that can run JS in this page (browser automation, a
+   bookmarklet, your own script) can push real work in as it happens:
+     AgentDashboard.logWork({ task: "...", skill: "Sales", xp: 25 })
+   Every write passes the same validation as the UI forms, lands in
+   the same store, re-renders instantly, persists, and syncs to other
+   open copies. Give an entry an `id` and re-sending it is a no-op —
+   retries can never double-count XP.
+   ===================================================================== */
+function feedEntryId(dateStr, skill, task, xp, note){
+  /* Deterministic id for id-less feed entries, hashed from content, so
+     re-publishing the same feed can never double-count them. */
+  const base = dateStr + "|" + skill + "|" + task + "|" + xp + "|" + note;
+  let h = 5381;
+  for (let i = 0; i < base.length; i++){ h = ((h << 5) + h + base.charCodeAt(i)) >>> 0; }
+  return "fh-" + h.toString(36);
+}
+function addLogEntry(input, source){
+  if (!input || typeof input !== "object") return false;
+  const skillName = input.skill || input.skillId;
+  const skill = ALL_SKILLS.includes(skillName) ? skillName : null;
+  const xp = Number(input.xp);
+  const task = cleanStr(input.task || input.note, 120).trim();
+  if (!skill || !VALID_AWARDS.includes(xp) || !task) return false;
+  const note = cleanStr(input.note, 120);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(input.date || "") ? input.date : fmtDate(new Date());
+  const id = cleanStr(input.id, 64) ||
+    (source === "feed" ? feedEntryId(date, skill, task, xp, note) : uid());
+  if (state.log.some(e => e.id === id)) return "present"; // idempotent
+  state.log.push({
+    id: id, date: date, task: task, skill: skill, xp: xp, note: note,
+    source: source || ""
+  });
+  return "added";
+}
+function applyQuestUpdate(input){
+  if (!input || typeof input !== "object") return false;
+  const ref = input.quest || input.questId || input.id || input.title;
+  const q = state.quests.find(x => x.id === ref) || state.quests.find(x => x.title === ref);
+  if (!q) return false;
+  let changed = false;
+  if (QUEST_STATUSES.includes(input.status) && q.status !== input.status){
+    q.status = input.status; changed = true;
+  }
+  if (Array.isArray(input.steps)){
+    input.steps.forEach(st => {
+      if (!st || typeof st !== "object" || typeof st.done !== "boolean") return;
+      const idx = Number.isInteger(st.index) ? st.index : q.steps.findIndex(s => s.text === st.text);
+      if (idx >= 0 && idx < q.steps.length && q.steps[idx].done !== st.done){
+        q.steps[idx].done = st.done; changed = true;
+      }
+    });
+  }
+  if (Number.isInteger(input.step) && input.step >= 0 && input.step < q.steps.length &&
+      typeof input.done === "boolean" && q.steps[input.step].done !== input.done){
+    q.steps[input.step].done = input.done; changed = true;
+  }
+  return changed;
+}
+function applyZoneUpdate(input){
+  if (!input || typeof input !== "object") return false;
+  const name = input.zone || input.name;
+  if (!ZONES.some(z => z.name === name)) return false;
+  const status = cleanStr(input.status, 40).trim();
+  if (!status) return false;
+  const note = cleanStr(input.note, 140);
+  const prev = state.zones[name];
+  if (prev && prev.status === status && prev.note === note) return false; // no change
+  state.zones[name] = { status: status, note: note };
+  return true;
+}
+function applyFeed(feed){
+  if (!feed || typeof feed !== "object" || Array.isArray(feed)) return false;
+  let changed = false;
+  if (Array.isArray(feed.log)) feed.log.forEach(e => { if (addLogEntry(e, "feed") === "added") changed = true; });
+  if (Array.isArray(feed.quests)) feed.quests.forEach(q => { if (applyQuestUpdate(q)) changed = true; });
+  if (Array.isArray(feed.zones)) feed.zones.forEach(z => { if (applyZoneUpdate(z)) changed = true; });
+  if (changed){ save(); renderAll(); }
+  return changed;
+}
+window.AgentDashboard = {
+  version: "1.1.0",
+  logWork(input){
+    if (addLogEntry(input, "bridge") === false) return false;
+    save(); renderAll(); return true;
+  },
+  setQuestProgress(input){
+    if (!applyQuestUpdate(input)) return false;
+    save(); renderAll(); return true;
+  },
+  setZoneStatus(input){
+    if (!applyZoneUpdate(input)) return false;
+    save(); renderAll(); return true;
+  },
+  applyFeed: applyFeed,
+  exportJSON: exportJSON,
+  importJSON: importJSON,
+  getState(){ return JSON.parse(JSON.stringify(state)); }
+};
+
+/* =====================================================================
+   External feed polling — the agent-push channel.
+   OFF unless CONFIG.feedUrl is set: with an empty feedUrl this page
+   makes zero network requests, exactly like v1.0. Failures are silent
+   (one console note, then quiet retries) and never touch state.
+   ===================================================================== */
+let feedWarned = false;
+function pollFeed(){
+  fetch(CONFIG.feedUrl, { cache: "no-store" })
+    .then(r => { if (!r.ok) throw new Error("feed HTTP " + r.status); return r.json(); })
+    .then(feed => { applyFeed(feed); })
+    .catch(() => {
+      if (!feedWarned){
+        feedWarned = true;
+        console.warn("Mobile Agent Dashboard: feed poll failed — check CONFIG.feedUrl. Retrying quietly.");
+      }
+    });
+}
+if (CONFIG.feedUrl){
+  pollFeed();
+  setInterval(pollFeed, Math.max(5, Number(CONFIG.feedPollSeconds) || 15) * 1000);
 }
 
 /* =====================================================================
@@ -983,6 +1296,40 @@ document.getElementById("goalForm").addEventListener("submit", ev => {
   };
   save(); renderGoal(); renderGlance();
   f.classList.add("hidden"); toast("Goal updated");
+});
+document.getElementById("exportBtn").addEventListener("click", () => {
+  const blob = new Blob([exportJSON()], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "mobile-agent-dashboard-progress.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+  toast("Progress exported — keep that JSON file safe");
+});
+document.getElementById("importBtn").addEventListener("click", () => {
+  document.getElementById("importFile").click();
+});
+document.getElementById("importFile").addEventListener("change", ev => {
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = "";
+  if (!file) return;
+  file.text()
+    .then(text => {
+      if (importJSON(text)) toast("Progress imported — welcome back");
+      else toast("Import failed — that file is not a valid dashboard export");
+    })
+    .catch(() => toast("Import failed — could not read that file"));
+});
+document.getElementById("freshBtn").addEventListener("click", () => {
+  if (!confirm("Clear all demo/sample data and start fresh? The sample log entries, quests, and items are removed and the goal resets to the default. Export first if you want a backup.")) return;
+  state = {
+    goal: { name: CONFIG.goalName, target: CONFIG.goalTarget, earned: 0 },
+    log: [], quests: [], items: [], zones: {}
+  };
+  save(); renderAll(); toast("Fresh start — everything from here is yours");
 });
 document.getElementById("resetBtn").addEventListener("click", () => {
   if (!confirm("Reset everything back to the template demo state? Your logged tasks, quests, items, and goal will be cleared.")) return;
